@@ -681,6 +681,7 @@ public class ZestGuidance implements Guidance {
                 // pool this parent input hits
                 Input currentParentInput = savedInputs.get(currentParentInputIdx);
                 int targetNumChildren = getTargetChildrenForParent(currentParentInput);
+                boolean isCycleCompleted = false;
                 if (numChildrenGeneratedForCurrentParentInput >= targetNumChildren) {
                     // Select the next saved input to fuzz
                     currentParentInputIdx = (currentParentInputIdx + 1) % savedInputs.size();
@@ -688,11 +689,16 @@ public class ZestGuidance implements Guidance {
                     // Count cycles
                     if (currentParentInputIdx == 0) {
                         completeCycle();
+                        isCycleCompleted = true;
                     }
 
                     numChildrenGeneratedForCurrentParentInput = 0;
                 }
-                Input parent = savedInputs.get(currentParentInputIdx);
+                Input parent;
+                if(isCycleCompleted)
+                    parent = createFreshInput();
+                else
+                    parent = savedInputs.get(currentParentInputIdx);
 
                 // Fuzz it to get a new input
                 // infoLog("Mutating input: %s", parent.desc);
