@@ -37,7 +37,7 @@ import java.io.InputStream;
 
 import com.pholser.junit.quickcheck.From;
 import com.pholser.junit.quickcheck.generator.Size;
-import edu.berkeley.cs.jqf.examples.kaitai.PngKaitaiGenerator;
+import edu.berkeley.cs.jqf.generators.images.kaitai.PngKaitaiGenerator;
 import edu.berkeley.cs.jqf.fuzz.Fuzz;
 import edu.berkeley.cs.jqf.fuzz.JQF;
 import org.junit.After;

@@ -35,8 +35,8 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
 import com.pholser.junit.quickcheck.From;
-import edu.berkeley.cs.jqf.examples.common.AsciiStringGenerator;
-import edu.berkeley.cs.jqf.examples.js.JavaScriptCodeGenerator;
+import edu.berkeley.cs.jqf.generators.string.AsciiStringGenerator;
+import edu.berkeley.cs.jqf.generators.languages.js.JavaScriptCodeGenerator;
 import edu.berkeley.cs.jqf.fuzz.Fuzz;
 import edu.berkeley.cs.jqf.fuzz.JQF;
 import org.apache.commons.io.IOUtils;

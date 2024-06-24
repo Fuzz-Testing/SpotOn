@@ -28,10 +28,10 @@
  */
 package edu.berkeley.cs.jqf.fuzz.util;
 
-import java.util.ArrayList;
+import edu.berkeley.cs.jqf.fuzz.ei.ZestGuidance;
+import edu.umn.cs.spoton.GuidanceConfig;
+import edu.umn.cs.spoton.analysis.influencing.CodeTarget;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.stream.Collectors;
 
 import edu.berkeley.cs.jqf.instrument.tracing.events.BranchEvent;
 import edu.berkeley.cs.jqf.instrument.tracing.events.CallEvent;
@@ -52,7 +52,7 @@ public class Coverage implements TraceEventVisitor, ICoverage<Counter> {
     private final int COVERAGE_MAP_SIZE = (1 << 16) - 1; // Minus one to reduce collisions
 
     /** The coverage counts for each edge. */
-    private final Counter counter = new NonZeroCachingCounter(COVERAGE_MAP_SIZE);
+    protected final Counter counter = new NonZeroCachingCounter(COVERAGE_MAP_SIZE);
 
     /** Creates a new coverage map. */
     public Coverage() {
@@ -61,7 +61,6 @@ public class Coverage implements TraceEventVisitor, ICoverage<Counter> {
 
     /**
      * Creates a copy of an this coverage map.
-     *
      */
     public Coverage copy() {
         Coverage ret = new Coverage();
@@ -96,11 +95,23 @@ public class Coverage implements TraceEventVisitor, ICoverage<Counter> {
     @Override
     public void visitBranchEvent(BranchEvent b) {
         counter.increment1(b.getIid(), b.getArm());
+        CodeTarget encounteredSourcePoint = new CodeTarget("L" + b.getContainingClass(),
+                                                           b.getContainingMethodName()
+                                                               + b.getContainingMethodDesc(),
+                                                           b.getLineNumber(), b.getIid());
+        ZestGuidance.addIfNewBranchScp(encounteredSourcePoint, b.getArm());
     }
 
     @Override
     public void visitCallEvent(CallEvent e) {
         counter.increment(e.getIid());
+        CodeTarget encounteredSourcePoint = new CodeTarget("L" + e.getContainingClass(),
+                                                           e.getContainingMethodName()
+                                                               + e.getContainingMethodDesc(),
+                                                           e.getLineNumber(), e.getIid());
+        GuidanceConfig guidanceConfig = GuidanceConfig.getInstance();
+        if (guidanceConfig.zestRunning || guidanceConfig.spotOnRunning || guidanceConfig.zestStrOptRunning)
+            ZestGuidance.addIfNewDispatch(encounteredSourcePoint, e.getInvokedMethodName());
     }
 
     /**

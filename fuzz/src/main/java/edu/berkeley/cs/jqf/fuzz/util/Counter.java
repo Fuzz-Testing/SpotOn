@@ -68,12 +68,6 @@ public class Counter {
         this.counts = new int[size];
     }
 
-    public Counter(Counter counter) {
-        this.size = counter.size;
-        this.counts = new int[size];
-        System.arraycopy(counter.counts, 0, counts, 0, size);
-    }
-
     /**
      * Returns the size of this counter.
      *
@@ -99,7 +93,8 @@ public class Counter {
     }
 
     protected int incrementAtIndex(int index, int delta) {
-        return (this.counts[index] += delta);
+        int counterVal =  (this.counts[index] += delta);
+        return counterVal;
     }
 
     /**
@@ -230,6 +225,10 @@ public class Counter {
      */
     public int get(int key) {
         return this.counts[idx(key)];
+    }
+
+    public int get1(int key1, int key2) {
+        return this.counts[idx1(key1,key2)];
     }
 
 

@@ -31,7 +31,7 @@ package edu.berkeley.cs.jqf.examples.chess;
 import chess.Situation;
 import chess.format.Forsyth;
 import com.pholser.junit.quickcheck.From;
-import edu.berkeley.cs.jqf.examples.common.ArbitraryLengthStringGenerator;
+import edu.berkeley.cs.jqf.generators.string.ArbitraryLengthStringGenerator;
 import edu.berkeley.cs.jqf.fuzz.Fuzz;
 import edu.berkeley.cs.jqf.fuzz.JQF;
 import org.junit.Assume;

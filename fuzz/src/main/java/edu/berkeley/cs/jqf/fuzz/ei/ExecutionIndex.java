@@ -55,6 +55,11 @@ public class ExecutionIndex implements Comparable<ExecutionIndex> {
         this.ei = ei;
     }
 
+
+    public int[] getEi(){
+        return ei;
+    }
+
     public ExecutionIndex(Prefix prefix, Suffix suffix) {
         // Prefix must end where suffix begins
         if (prefix.length != suffix.offset) {
@@ -81,11 +86,7 @@ public class ExecutionIndex implements Comparable<ExecutionIndex> {
 
     @Override
     public boolean equals(Object other) {
-        if (other != null && other instanceof ExecutionIndex) {
-            return Arrays.equals(ei, ((ExecutionIndex) other).ei);
-        } else {
-            return false;
-        }
+        return Arrays.equals(ei, ((ExecutionIndex) other).ei);
     }
 
     @Override

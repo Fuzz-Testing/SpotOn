@@ -28,6 +28,7 @@
  */
 package edu.berkeley.cs.jqf.examples.jgrapht;
 
+import edu.berkeley.cs.jqf.generators.jgrapht.GraphModel;
 import java.util.List;
 
 import edu.berkeley.cs.jqf.fuzz.Fuzz;

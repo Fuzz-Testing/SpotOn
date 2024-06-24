@@ -29,8 +29,12 @@
  */
 package edu.berkeley.cs.jqf.fuzz.junit.quickcheck;
 
+import edu.umn.cs.spoton.GuidanceConfig;
 import java.io.EOFException;
+import java.io.InputStream;
 import java.lang.reflect.Parameter;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -46,7 +50,6 @@ import edu.berkeley.cs.jqf.fuzz.guidance.GuidanceException;
 import edu.berkeley.cs.jqf.fuzz.guidance.TimeoutException;
 import edu.berkeley.cs.jqf.fuzz.guidance.Result;
 import edu.berkeley.cs.jqf.fuzz.guidance.StreamBackedRandom;
-import edu.berkeley.cs.jqf.fuzz.junit.TrialRunner;
 import edu.berkeley.cs.jqf.instrument.InstrumentationException;
 import org.junit.AssumptionViolatedException;
 import org.junit.runners.model.FrameworkMethod;
@@ -94,6 +97,10 @@ public class FuzzStatement extends Statement {
      */
     @Override
     public void evaluate() throws Throwable {
+        double mutationTime = 0.0;
+        double genTime = 0.0;
+        double testTime = 0.0;
+        double handleResultTime = 0.0;
         // Construct generators for each parameter
         List<Generator<?>> generators = Arrays.stream(method.getMethod().getParameters())
                 .map(this::createParameterTypeContext)
@@ -114,53 +121,86 @@ public class FuzzStatement extends Statement {
                     try {
 
                         // Generate input values
-                        StreamBackedRandom randomFile = new StreamBackedRandom(guidance.getInput(), Long.BYTES);
+                        Instant beforeDate = Instant.now();
+                        InputStream input;
+                        try {
+                            input = guidance.getInput();
+                        } finally {
+                            Instant afterDate = Instant.now();
+                            mutationTime = Duration.between(beforeDate, afterDate).toNanos() /  1_000_000_000.0;
+                        }
+
+                        StreamBackedRandom randomFile = new StreamBackedRandom(input, Long.BYTES);
                         SourceOfRandomness random = new FastSourceOfRandomness(randomFile);
                         GenerationStatus genStatus = new NonTrackingGenerationStatus(random);
-                        args = generators.stream()
+                        System.setProperty("GenerationBegin", "true");
+                        beforeDate = Instant.now();
+                        try{
+                            args = generators.stream()
                                 .map(g -> g.generate(random, genStatus))
                                 .toArray();
-
+                        }finally {
+                            Instant afterDate = Instant.now();
+                            genTime = Duration.between(beforeDate, afterDate).toNanos() /  1_000_000_000.0;
+                        }
+                        if(GuidanceConfig.getInstance().eiGenerationExperiment)
+                            guidance.appendInputSizeStats();
                         // Let guidance observe the generated input args
                         guidance.observeGeneratedArgs(args);
                     } catch (IllegalStateException e) {
                         if (e.getCause() instanceof EOFException) {
                             // This happens when we reach EOF before reading all the random values.
                             // The only thing we can do is try again
+                            System.out.println("This happens when we reach EOF before reading all the random values.");
                             continue;
                         } else {
+//                            System.out.println("exception 1\n"+ Arrays.toString(e.getStackTrace()));
                             throw e;
                         }
                     } catch (AssumptionViolatedException | TimeoutException e) {
+//                        System.out.println("exception 2\n"+ Arrays.toString(e.getStackTrace()));
                         // Propagate early termination of tests from generator
                         continue;
                     } catch (GuidanceException e) {
                         // Throw the guidance exception outside to stop fuzzing
+//                        System.out.println("exception 3\n"+ Arrays.toString(e.getStackTrace()));
                         throw e;
                     } catch (Throwable e) {
                         // Throw the guidance exception outside to stop fuzzing
+//                        System.out.println("exception 4\n"+ Arrays.toString(e.getStackTrace()));
                         throw new GuidanceException(e);
                     }
 
+                    Instant beforeDate = Instant.now();
                     // Attempt to run the trial
-                    guidance.run(testClass, method, args);
-
+                    try{
+                        guidance.run(testClass, method, args);}
+                    finally {
+                        Instant afterDate = Instant.now();
+                        testTime = Duration.between(beforeDate, afterDate).toNanos() /  1_000_000_000.0;
+                        guidance.incrementTimeTookByChildrenForParent(mutationTime+genTime+testTime);
+                    }
+//                    guidance.appendGenDetails();
                     // If we reached here, then the trial must be a success
                     result = SUCCESS;
                 } catch(InstrumentationException e) {
-                    // Throw a guidance exception outside to stop fuzzing
+                    // Throw a guidance e xception outside to stop fuzzing
+//                    System.out.println("exception 5\n"+ Arrays.toString(e.getStackTrace()));
                     throw new GuidanceException(e);
                 } catch (GuidanceException e) {
                     // Throw the guidance exception outside to stop fuzzing
+//                    System.out.println("exception 6\n"+ Arrays.toString(e.getStackTrace()));
                     throw e;
                 } catch (AssumptionViolatedException e) {
+//                    System.out.println("exception 7\n"+ Arrays.toString(e.getStackTrace()));
                     result = INVALID;
                     error = e;
                 } catch (TimeoutException e) {
+//                    System.out.println("exception 8\n"+ Arrays.toString(e.getStackTrace()));
                     result = TIMEOUT;
                     error = e;
                 } catch (Throwable e) {
-
+//                    System.out.println("exception 9\n"+ Arrays.toString(e.getStackTrace()));
                     // Check if this exception was expected
                     if (isExceptionExpected(e.getClass())) {
                         result = SUCCESS; // Swallow the error
@@ -173,10 +213,19 @@ public class FuzzStatement extends Statement {
 
                 // Inform guidance about the outcome of this trial
                 try {
-                    guidance.handleResult(result, error);
+                    Instant beforeDate = Instant.now();
+                    try {
+                        guidance.handleResult(result, error);
+                    }finally {
+                        Instant afterDate = Instant.now();
+                        handleResultTime = Duration.between(beforeDate, afterDate).toNanos() /  1_000_000_000.0;
+                        guidance.appendGenFuzzStats(mutationTime, genTime, testTime, handleResultTime);
+                    }
                 } catch (GuidanceException e) {
+//                    System.out.println("exception 10\n"+ Arrays.toString(e.getStackTrace()));
                     throw e; // Propagate
                 } catch (Throwable e) {
+//                    System.out.println("exception 11\n"+ Arrays.toString(e.getStackTrace()));
                     // Anything else thrown from handleResult is an internal error, so wrap
                     throw new GuidanceException(e);
                 }
@@ -184,16 +233,18 @@ public class FuzzStatement extends Statement {
 
             }
         } catch (GuidanceException e) {
-            System.err.println("Fuzzing stopped due to guidance exception: " + e.getMessage());
+//            System.out.println("exception 12\n"+ Arrays.toString(e.getStackTrace()));
             throw e;
         }
 
         if (failures.size() > 0) {
             if (failures.size() == 1) {
+                System.out.println("one failure encountered");
                 throw failures.get(0);
             } else {
                 // Not sure if we should report each failing run,
                 // as there may be duplicates
+                System.out.println("multiple failures encountered");
                 throw new MultipleFailureException(failures);
             }
         }

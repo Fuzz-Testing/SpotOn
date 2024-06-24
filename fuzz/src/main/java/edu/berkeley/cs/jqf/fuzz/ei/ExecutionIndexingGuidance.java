@@ -28,6 +28,7 @@
  */
 package edu.berkeley.cs.jqf.fuzz.ei;
 
+import edu.umn.cs.spoton.GuidanceConfig;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
@@ -51,7 +52,6 @@ import edu.berkeley.cs.jqf.fuzz.ei.state.FastExecutionIndexingState;
 import edu.berkeley.cs.jqf.fuzz.ei.state.JanalaExecutionIndexingState;
 import edu.berkeley.cs.jqf.fuzz.guidance.GuidanceException;
 import edu.berkeley.cs.jqf.fuzz.guidance.Result;
-import edu.berkeley.cs.jqf.fuzz.junit.quickcheck.FuzzStatement;
 import edu.berkeley.cs.jqf.fuzz.util.CoverageFactory;
 import edu.berkeley.cs.jqf.fuzz.util.ProducerHashMap;
 import edu.berkeley.cs.jqf.instrument.tracing.FastCoverageSnoop;
@@ -63,6 +63,8 @@ import org.eclipse.collections.api.iterator.IntIterator;
 import org.eclipse.collections.impl.set.mutable.primitive.IntHashSet;
 import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.TestClass;
+import org.openjdk.jol.info.GraphLayout;
+import org.openjdk.jol.vm.VM;
 
 /**
  * A guidance that represents inputs as maps from
@@ -74,14 +76,13 @@ public class ExecutionIndexingGuidance extends ZestGuidance {
 
     /** The execution indexing logic. */
     protected AbstractExecutionIndexingState eiState;
-
     /**
      * A map of execution contexts (call stacks) to locations in saved inputs with those contexts.
      *
      * This is a nifty data structure for quickly finding candidates for input splicing.
      */
     private Map<ExecutionContext, ArrayList<InputLocation>> ecToInputLoc
-            = new ProducerHashMap<>(() -> new ArrayList<>());
+        = new ProducerHashMap<>(() -> new ArrayList<>());
 
     /** The thread being instrumented for coverage-guided fuzzing. */
     protected Thread appThread;
@@ -102,7 +103,7 @@ public class ExecutionIndexingGuidance extends ZestGuidance {
     protected final double MEAN_MUTATION_SIZE = 4.0; // Bytes
 
     /** Probability that a standard mutation sets the byte to just zero instead of a random value. */
-    protected final double MUTATION_ZERO_PROBABILITY = 0.05;
+    protected final double MUTATION_ZERO_PROBABILITY = 0.5;
 
     /** Max number of contiguous bytes to splice in from another input during the splicing stage. */
     protected final int MAX_SPLICE_SIZE = 64; // Bytes
@@ -171,7 +172,7 @@ public class ExecutionIndexingGuidance extends ZestGuidance {
             return super.getTitle();
         } else {
             return  "Semantic Fuzzing with Execution Indexes\n" +
-                    "---------------------------------------\n";
+                "---------------------------------------\n";
         }
     }
 
@@ -248,6 +249,8 @@ public class ExecutionIndexingGuidance extends ZestGuidance {
     public void handleResult(Result result, Throwable error) throws GuidanceException {
         int numSavedInputsBefore = savedInputs.size();
         super.handleResult(result, error);
+        if(GuidanceConfig.getInstance().spotOnRunning)
+            return; // we need to avoid minimization, since baseline Zest is not doing it.
 
         // Was this a good input?
         if (result == Result.SUCCESS) {
@@ -340,7 +343,7 @@ public class ExecutionIndexingGuidance extends ZestGuidance {
     }
 
 
-    private void mapEcToInputLoc(Input input) {
+    protected void mapEcToInputLoc(Input input) {
         if (input instanceof MappedInput) {
             MappedInput mappedInput = (MappedInput) input;
             for (int offset = 0; offset < mappedInput.size(); offset++) {
@@ -357,7 +360,7 @@ public class ExecutionIndexingGuidance extends ZestGuidance {
     public Consumer<TraceEvent> generateCallBack(Thread thread) {
         if (appThread != null) {
             throw new IllegalStateException(ExecutionIndexingGuidance.class +
-                    " only supports single-threaded apps at the moment");
+                                                " only supports single-threaded apps at the moment");
         }
         appThread = thread;
         entryPoint = SingleSnoop.entryPoints.get(thread).replace('.', '/');
@@ -423,7 +426,7 @@ public class ExecutionIndexingGuidance extends ZestGuidance {
         protected boolean executed = false;
 
         /** A map from execution indexes to the byte (0-255) to be returned at that index. */
-        protected LinkedHashMap<ExecutionIndex, Integer> valuesMap;
+        protected HashMap<ExecutionIndex, Integer> valuesMap;
 
         /**
          * A list of execution indexes that are actually requested by the test program when
@@ -444,7 +447,7 @@ public class ExecutionIndexingGuidance extends ZestGuidance {
          */
         public MappedInput() {
             super();
-            valuesMap = new LinkedHashMap<>();
+            valuesMap = new HashMap<>();
         }
 
         /**
@@ -454,8 +457,9 @@ public class ExecutionIndexingGuidance extends ZestGuidance {
          */
         public MappedInput(MappedInput toClone) {
             super(toClone);
-            valuesMap = new LinkedHashMap<>(toClone.valuesMap);
+            valuesMap = new HashMap<>(toClone.valuesMap);
         }
+
 
         /**
          * Returns the size of this input, in terms of number of bytes
@@ -640,6 +644,19 @@ public class ExecutionIndexingGuidance extends ZestGuidance {
             executed = true;
         }
 
+        @Override
+        public long computeVmMemory(boolean isDeepComputation) {
+            long totalVmSize = 0 ;
+            /**
+             * deep computation to valuesMap but a shallow one to orderedKeys because we do not
+             * want to recount size of the values
+             */
+            if(isDeepComputation)
+                return  GraphLayout.parseInstance(valuesMap).totalSize() +
+                    VM.current().sizeOf(orderedKeys) ;
+            else return VM.current().sizeOf(valuesMap) + VM.current().sizeOf(orderedKeys) ;
+        }
+
         /**
          * Return a new input derived from this one with some values
          * mutated.
@@ -685,9 +702,7 @@ public class ExecutionIndexingGuidance extends ZestGuidance {
             // Maybe try splicing
             boolean splicingDone = false;
 
-            // Only splice if we have been provided the ecToInputLoc
-            if (ecToInputLoc != null) {
-
+            if (ecToInputLoc != null ) {
                 if (random.nextDouble() < STANDARD_SPLICING_PROBABILITY) {
                     final int MIN_TARGET_ATTEMPTS = 3;
                     final int MAX_TARGET_ATTEMPTS = 6;
@@ -707,7 +722,7 @@ public class ExecutionIndexingGuidance extends ZestGuidance {
 
                         // Find a suitable input location to splice from and ignore locations from the same source
                         List<InputLocation> inputLocations = ecToInputLoc
-                                .get(targetEc).stream().filter(it -> it.input != this).collect(Collectors.toList());
+                            .get(targetEc).stream().filter(it -> it.input != this).collect(Collectors.toList());
 
 
                         // If this was a bad choice of target, try again without penalty if possible
@@ -752,7 +767,7 @@ public class ExecutionIndexingGuidance extends ZestGuidance {
                                 Prefix targetPrefix = targetEi.getPrefixOfSuffix(suffix);
                                 assert (sourcePrefix.size() == targetPrefix.size());
                                 demandDrivenSpliceMap.add(
-                                        new InputPrefixMapping(sourceInput, sourcePrefix, targetPrefix));
+                                    new InputPrefixMapping(sourceInput, sourcePrefix, targetPrefix));
 
                                 // OK, this looks good. Let's splice!
                                 int srcIdx = sourceOffset;
@@ -790,7 +805,7 @@ public class ExecutionIndexingGuidance extends ZestGuidance {
                             // Complete splicing
                             splicingDone = true;
                             newInput.desc += String.format(",splice:%06d:%d@%d->%d", sourceInput.id, splicedBytes,
-                                    sourceOffset, targetOffset);
+                                                           sourceOffset, targetOffset);
 
                             break outer; // Stop more splicing attempts!
 
@@ -801,7 +816,6 @@ public class ExecutionIndexingGuidance extends ZestGuidance {
 
             // Maybe do random mutations
             if (splicingDone == false || random.nextBoolean()) {
-
                 // Stack a bunch of mutations
                 int numMutations = sampleGeometric(random, MEAN_MUTATION_COUNT);
                 newInput.desc += ",havoc:"+numMutations;
@@ -822,7 +836,7 @@ public class ExecutionIndexingGuidance extends ZestGuidance {
 
                     // Iterate over all entries in the value map
                     Iterator<Map.Entry<ExecutionIndex, Integer>> entryIterator
-                            = newInput.valuesMap.entrySet().iterator();
+                        = newInput.valuesMap.entrySet().iterator();
                     ExecutionContext ecToMutate = null;
                     for (int i = 0; entryIterator.hasNext(); i++) {
                         Map.Entry<ExecutionIndex, Integer> e = entryIterator.next();
@@ -868,7 +882,7 @@ public class ExecutionIndexingGuidance extends ZestGuidance {
         }
     }
 
-    static class InputLocation {
+    protected static class InputLocation {
         private final MappedInput input;
         private final int offset;
 

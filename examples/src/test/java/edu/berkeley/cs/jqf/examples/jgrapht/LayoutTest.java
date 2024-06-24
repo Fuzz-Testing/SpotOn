@@ -33,6 +33,7 @@ import com.jgraph.layout.JGraphLayout;
 import com.jgraph.layout.hierarchical.JGraphHierarchicalLayout;
 import edu.berkeley.cs.jqf.fuzz.Fuzz;
 import edu.berkeley.cs.jqf.fuzz.JQF;
+import edu.berkeley.cs.jqf.generators.jgrapht.GraphModel;
 import org.jgraph.JGraph;
 import org.jgrapht.DirectedGraph;
 import org.jgrapht.alg.CycleDetector;

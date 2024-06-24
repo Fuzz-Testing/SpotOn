@@ -19,6 +19,11 @@
             <groupId>org.ow2.asm</groupId>
             <artifactId>asm</artifactId>
         </dependency>
+      <dependency>
+        <artifactId>static-analysis</artifactId>
+        <groupId>edu.umn.cs.spoton</groupId>
+        <version>1.0-SNAPSHOT</version>
+      </dependency>
     </dependencies>
 
 
@@ -40,23 +45,23 @@
                         </manifestEntries>
                     </archive>
                 </configuration>
-            </plugin>            
-            <plugin> 
-                <groupId>org.apache.maven.plugins</groupId> 
-                <artifactId>maven-dependency-plugin</artifactId> 
-                <executions> 
-                        <execution> 
-                                <id>copy-dependencies</id> 
-                                <phase>package</phase> 
-                                <goals> 
-                                        <goal>copy-dependencies</goal> 
-                                </goals> 
-                                <configuration> 
-                                        <includeScope>runtime</includeScope> 
-                                </configuration> 
-                        </execution> 
-                </executions> 
-            </plugin> 
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                        <execution>
+                                <id>copy-dependencies</id>
+                                <phase>package</phase>
+                                <goals>
+                                        <goal>copy-dependencies</goal>
+                                </goals>
+                                <configuration>
+                                        <includeScope>runtime</includeScope>
+                                </configuration>
+                        </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 

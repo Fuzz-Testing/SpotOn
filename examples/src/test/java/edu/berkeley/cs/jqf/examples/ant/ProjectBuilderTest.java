@@ -37,9 +37,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import com.pholser.junit.quickcheck.From;
-import edu.berkeley.cs.jqf.examples.xml.XMLDocumentUtils;
-import edu.berkeley.cs.jqf.examples.xml.XmlDocumentGenerator;
-import edu.berkeley.cs.jqf.examples.common.Dictionary;
+import edu.berkeley.cs.jqf.generators.structured.xml.XMLDocumentUtils;
+import edu.berkeley.cs.jqf.generators.structured.xml.XmlDocumentGenerator;
+import edu.berkeley.cs.jqf.generators.common.Dictionary;
 import edu.berkeley.cs.jqf.fuzz.Fuzz;
 import edu.berkeley.cs.jqf.fuzz.JQF;
 import org.apache.tools.ant.BuildException;

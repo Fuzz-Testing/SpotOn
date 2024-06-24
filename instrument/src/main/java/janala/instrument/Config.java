@@ -1,13 +1,17 @@
 package janala.instrument;
 
+import edu.umn.cs.spoton.analysis.influencing.CodeTarget;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Properties;
 
-class Config {
+public class Config {
   // System properties
-  public static final String propFile = System.getProperty("janala.conf", "janala.conf");
+  public static final String propFile = System.getProperty("janala.conf", "janala.conf") !=null? System.getProperty("janala.conf", "janala.conf") :
+      System.getProperty("janala-analysis.conf", "janala-analysis.conf");
 
   public static final Config instance = new Config();
 
@@ -19,6 +23,11 @@ class Config {
   public final boolean instrumentAlloc;
   public final String instrumentationCacheDir;
   public final boolean useFastCoverageInstrumentation;
+
+  /**
+   * keeps track of all codeTargets for expanding the complex conditions
+   */
+  public static final HashMap<String, HashSet<CodeTarget>> classToInstrumentedScp = new HashMap<>();
 
   private Config() {
       // Read properties from the conf file

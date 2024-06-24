@@ -41,7 +41,7 @@ import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.bugpatterns.EqualsHashCode;
 import com.pholser.junit.quickcheck.From;
 import com.sun.tools.javac.main.Main;
-import edu.berkeley.cs.jqf.examples.common.AsciiStringGenerator;
+import edu.berkeley.cs.jqf.generators.string.AsciiStringGenerator;
 import edu.berkeley.cs.jqf.fuzz.Fuzz;
 import edu.berkeley.cs.jqf.fuzz.JQF;
 import org.junit.Assert;

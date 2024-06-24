@@ -5,8 +5,6 @@ import edu.berkeley.cs.jqf.fuzz.util.Counter;
 import edu.berkeley.cs.jqf.fuzz.util.NonZeroCachingCounter;
 import edu.berkeley.cs.jqf.instrument.tracing.events.CallEvent;
 import edu.berkeley.cs.jqf.instrument.tracing.events.ReturnEvent;
-import edu.berkeley.cs.jqf.instrument.tracing.events.TraceEvent;
-import edu.berkeley.cs.jqf.instrument.tracing.events.TraceEventVisitor;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,26 +18,18 @@ import java.util.Arrays;
  * @author Rohan Padhye
  */
 public abstract class AbstractExecutionIndexingState {
-    private final int COUNTER_SIZE = 6151;
-    private final int MAX_SUPPORTED_DEPTH = 1024; // Nothing deeper than this
+    protected final int COUNTER_SIZE = 6151;
+    protected final int MAX_SUPPORTED_DEPTH = 1024; // Nothing deeper than this
 
-    private int depth = 0;
-    private int lastEventIid = -1;
-    private ArrayList<Counter> stackOfCounters = new ArrayList<>();
-    private int[] rollingIndex = new int[2*MAX_SUPPORTED_DEPTH];
+    protected int depth = 0;
+    protected int lastEventIid = -1;
+    protected ArrayList<Counter> stackOfCounters = new ArrayList<>();
+    protected int[] rollingIndex = new int[2*MAX_SUPPORTED_DEPTH];
+
 
     public AbstractExecutionIndexingState() {
         // Create a counter for depth = 0
         stackOfCounters.add(new NonZeroCachingCounter(COUNTER_SIZE));
-    }
-
-    public AbstractExecutionIndexingState(AbstractExecutionIndexingState eis) {
-        depth = eis.depth;
-        lastEventIid = eis.lastEventIid;
-        for(Counter c : eis.stackOfCounters) {
-            stackOfCounters.add(new Counter(c));
-        }
-        System.arraycopy(eis.rollingIndex, 0, rollingIndex, 0, eis.rollingIndex.length);
     }
 
     protected void setLastEventIid(int iid) {
@@ -72,7 +62,6 @@ public abstract class AbstractExecutionIndexingState {
         }
 
     }
-
     public void popReturn(int iid) {
         // We want to pop all indices until we meet
         // the current return function. This is a lazy

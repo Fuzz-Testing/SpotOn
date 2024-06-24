@@ -73,7 +73,7 @@ public class ThreadTracer {
     // Also set this to TRUE when using execution indexes, to ensure that every call site has exactly one push/pop
     private final boolean MATCH_CALLEE_NAMES = Boolean.getBoolean("jqf.tracing.MATCH_CALLEE_NAMES");
 
-
+    boolean generationBeginOccurred = false;
     /**
      * Creates a new tracer that will process instructions executed by an application
      * thread.
@@ -134,6 +134,16 @@ public class ThreadTracer {
      * @param ins the instruction to process
      */
     protected final void consume(Instruction ins) {
+        // this is a hack to ensure that the handlers has only a BaseHandler by the time we are going to generate inputs
+        if(!generationBeginOccurred && ins instanceof  METHOD_BEGIN) {
+            boolean generationStarted = Boolean.valueOf(System.getProperty("GenerationBegin"));
+            if (generationStarted) {
+                while (!(handlers.peek() instanceof BaseHandler))
+                    handlers.pop();
+                System.setProperty("GenerationBegin", "false");
+                generationBeginOccurred = true;
+            }
+        }
         // Apply the visitor at the top of the stack
         ins.visit(handlers.peek());
         if (callBackException != null) {
@@ -236,7 +246,7 @@ public class ThreadTracer {
                 // Trace continues with callee
                 int invokerIid = invokeTarget != null ? ((Instruction) invokeTarget).iid : -1;
                 int invokerMid = invokeTarget != null ? ((Instruction) invokeTarget).mid : -1;
-                emit(new CallEvent(invokerIid, this.method, invokerMid, begin, begin.getObject()));
+                emit(new CallEvent(invokerIid, this.method, invokerMid, begin));
                 handlers.push(new TraceEventGeneratingHandler(begin, depth+1));
             } else {
                 // Class loading or static initializer

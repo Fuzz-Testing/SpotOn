@@ -29,15 +29,24 @@
  */
 package edu.berkeley.cs.jqf.plugin;
 
+import com.ibm.wala.ipa.callgraph.CallGraphBuilderCancelException;
+import com.ibm.wala.ipa.cha.ClassHierarchyException;
+import edu.umn.cs.spoton.analysis.influencing.CodeTarget;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.MalformedURLException;
 import java.net.URLClassLoader;
 import java.time.Duration;
 import java.time.format.DateTimeParseException;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 import edu.berkeley.cs.jqf.fuzz.ei.ExecutionIndexingGuidance;
@@ -45,6 +54,7 @@ import edu.berkeley.cs.jqf.fuzz.ei.ZestGuidance;
 import edu.berkeley.cs.jqf.fuzz.guidance.GuidanceException;
 import edu.berkeley.cs.jqf.fuzz.junit.GuidedFuzzing;
 import edu.berkeley.cs.jqf.instrument.InstrumentingClassLoader;
+import edu.umn.cs.spoton.SpotOnGuidance;
 import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -261,7 +271,45 @@ public class FuzzGoal extends AbstractMojo {
      */
     @Parameter(property="exitOnCrash")
     private String exitOnCrash;
+    /**
+     * Pointer to the directory of the jar file for dependency analysis
+     */
+    @Parameter(property = "jarName")
+    private String jarName;
 
+    @Parameter(property = "analysisMavenPath")
+    private String analysisMavenPath;
+
+    @Parameter(property = "analysisMainMethod")
+    private String analysisMainMethod;
+
+    /**
+     * Name of the class that is being invoked by the testcase for dependency analysis
+     */
+    @Parameter(property = "dependencyEntryClass")
+    private String dependencyEntryClass;
+
+
+    /**
+     * Name of the user package that we want to include in our dependency analysis
+     */
+    @Parameter(property = "dependencyPackage")
+    private String dependencyPackage;
+
+    /**
+     * All environment properties we want to set passed in the form of pairs
+     * (propName1=propValue11,propValue12);(propName2=propValue2)
+     */
+    @Parameter(property = "environmentProps")
+    private String environmentProperties;
+
+
+    /**
+     * indicates whether we want to run the eiGenerationExperiment which measure the expense of
+     * creating the execution index as a FCI
+     */
+    @Parameter(property = "eiGenerationExp")
+    private boolean eiGenerationExperiment;
     /**
      * The timeout for each individual trial, in milliseconds.
      *
@@ -302,6 +350,22 @@ public class FuzzGoal extends AbstractMojo {
             System.setProperty("janala.includes", includes);
         }
 
+        /* Collecting all environment properties set*/
+        if (environmentProperties != null) {
+            System.out.println("environment variable found = " + environmentProperties);
+            String[] properties = environmentProperties.split(";");
+            System.out.println("env prop after spliting by ; = " + Arrays.toString(properties));
+            for (String prop : properties) {
+                String[] keyValue = prop.replace("(", "").replace(")", "").split("=");
+                System.out.println("keyvalue = " + Arrays.toString(keyValue));
+                assert
+                    keyValue.length == 2 : "expecting key-value pair for setting environment properties.";
+                System.setProperty(keyValue[0], keyValue[1]);
+                System.out.println("setting property of " + keyValue[0] + ", with val=" + keyValue[1]);
+
+            }
+        }
+
         // Configure Zest Guidance
         if (saveAll) {
             System.setProperty("jqf.ei.SAVE_ALL_INPUTS", "true");
@@ -312,8 +376,14 @@ public class FuzzGoal extends AbstractMojo {
         if (quiet) {
             System.setProperty("jqf.ei.QUIET_MODE", "true");
         }
+        if (eiGenerationExperiment) {
+            System.setProperty("spoton.RUN_EI_GEN_EXPERIMENT", "true");
+        }
         if (exitOnCrash != null) {
             System.setProperty("jqf.ei.EXIT_ON_CRASH", exitOnCrash);
+        }
+        if (dependencyPackage != null) {
+            System.setProperty("spoton.DEPENDENCY_PACKAGE", dependencyPackage);
         }
         if (runTimeout > 0) {
             System.setProperty("jqf.ei.TIMEOUT", String.valueOf(runTimeout));
@@ -321,6 +391,8 @@ public class FuzzGoal extends AbstractMojo {
         if (fixedSizeInputs) {
             System.setProperty("jqf.ei.GENERATE_EOF_WHEN_OUT", String.valueOf(true));
         }
+
+        System.setProperty("engine", engine);
 
         Duration duration = null;
         if (time != null && !time.isEmpty()) {
@@ -332,9 +404,10 @@ public class FuzzGoal extends AbstractMojo {
         }
 
         if (outputDirectory == null || outputDirectory.isEmpty()) {
-            outputDirectory = "fuzz-results" + File.separator + testClassName + File.separator + testMethod;
+            outputDirectory =
+                engine + "-fuzz-results" + File.separator + testClassName + File.separator + testMethod;
         }
-
+        System.setProperty("jqf.RESULTS_OUTPUT_DIR", outputDirectory);
         try {
             List<String> classpathElements = project.getTestClasspathElements();
 
@@ -353,9 +426,13 @@ public class FuzzGoal extends AbstractMojo {
         }
 
         File resultsDir = new File(target, outputDirectory);
+        System.setProperty("jqf.PROJECT_DIR", target.getAbsolutePath());
         String targetName = testClassName + "#" + testMethod;
         File seedsDir = inputDirectory == null ? null : new File(inputDirectory);
         Random rnd = randomSeed != null ? new Random(randomSeed) : new Random();
+        System.out.println("printing randomSeed = " + randomSeed);
+        System.out.println("printing excludes = " + excludes);
+        System.out.println("running EiGeneration expirement = " + eiGenerationExperiment);
         try {
             switch (engine) {
                 case "zest":
@@ -364,7 +441,25 @@ public class FuzzGoal extends AbstractMojo {
                 case "zeal":
                     System.setProperty("jqf.tracing.TRACE_GENERATORS", "true");
                     System.setProperty("jqf.tracing.MATCH_CALLEE_NAMES", "true");
-                    guidance = new ExecutionIndexingGuidance(targetName, duration, trials, resultsDir, seedsDir, rnd);
+                    guidance = new ExecutionIndexingGuidance(targetName, duration, trials, resultsDir,
+                                                             seedsDir, rnd);
+                    break;
+                case "zestStrOpt":
+                    // has the side effect of populating the stringTable that can be used while generating strings.
+//                    new StaticAnalysisMain(false);
+                    invokeInfluencingAnalysis(false);
+//          readUpdateStrConstant();
+                    guidance = new ZestGuidance(targetName, duration, trials, resultsDir, seedsDir, rnd);
+                    break;
+                case "spotOn":
+                    System.setProperty("jqf.tracing.TRACE_GENERATORS", "true");
+                    System.setProperty("jqf.tracing.MATCH_CALLEE_NAMES", "true");
+                    invokeInfluencingAnalysis(true);
+//          readUpdateStrConstant();
+                    HashMap<CodeTarget, Map<String, Integer>> scpToTypesMap = new HashMap<>();
+                    readUpdateScps(scpToTypesMap);
+                    guidance = new SpotOnGuidance(targetName, duration, trials, resultsDir,
+                                                  seedsDir, rnd, scpToTypesMap);
                     break;
                 default:
                     throw new MojoExecutionException("Unknown fuzzing engine: " + engine);
@@ -374,6 +469,8 @@ public class FuzzGoal extends AbstractMojo {
             throw new MojoExecutionException("File not found", e);
         } catch (IOException e) {
             throw new MojoExecutionException("I/O error", e);
+        } catch (ClassHierarchyException | CallGraphBuilderCancelException e) {
+            throw new MojoExecutionException("typed static analysis error");
         }
 
         try {
@@ -398,6 +495,63 @@ public class FuzzGoal extends AbstractMojo {
                     "Use mvn jqf:repro to reproduce failing test cases from %s/failures. ",
                     result.getFailureCount(), resultsDir) +
                     "Sample exception included with this message.", e);
+        }
+    }
+
+    private void readUpdateScps(HashMap<CodeTarget, Map<String, Integer>> scpToTypesMap) {
+        String analysisDirPath = target + "/" + outputDirectory + "/analysisOutput";
+        File analysisDir = new File(analysisDirPath);
+        for (File file : analysisDir.listFiles())
+            if (!file.getName().equals("StrConstants.txt"))
+                readUpdateSingleScp(file, scpToTypesMap);
+    }
+
+    private void readUpdateSingleScp(File scpMapFile,
+        HashMap<CodeTarget, Map<String, Integer>> scpToTypesMap) {
+        LinkedHashMap<String, Integer> typesMap = new LinkedHashMap<>();
+
+        try (BufferedReader br = new BufferedReader(new FileReader(scpMapFile))) {
+            CodeTarget scp = new CodeTarget(br.readLine()); //first line is the codeTarget
+            String line;
+            while ((line = br.readLine()) != null) {
+                String[] entry = line.split("=");
+                assert
+                    entry.length == 2 : "unexpected pair of types and depth for a codeTarget. Failing";
+                typesMap.put(entry[0], Integer.valueOf(entry[1]));
+            }
+            scpToTypesMap.put(scp, typesMap);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    private void invokeInfluencingAnalysis(boolean b) {
+        try {
+            assert analysisMavenPath
+                != null : "cannot run analysis, path of the analysis project has not been specified.";
+
+            String mainClassName = "edu.umn.cs.spoton.analysis.StaticAnalysisMain";
+
+            String programArguments = b + " " + dependencyPackage + " " + dependencyEntryClass + " " +
+                target.getAbsolutePath() + "/" + jarName + " " + "fakeMain()V;" + " "
+                + target + "/" + outputDirectory;
+
+            System.out.println("programArguments  = " + programArguments);
+            String[] command = {"mvn", "exec:java", "-Dexec.mainClass=" + mainClassName,
+                "-Dexec.args=" + programArguments};
+
+            ProcessBuilder processBuilder = new ProcessBuilder(command)
+                .directory(new java.io.File(analysisMavenPath))
+                .inheritIO(); // Redirect output to the current process
+
+            Process process = processBuilder.start();
+
+            int exitCode = process.waitFor();
+
+            System.out.println("Maven process exited with code: " + exitCode);
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
         }
     }
 }

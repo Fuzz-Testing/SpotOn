@@ -34,9 +34,9 @@ import java.io.InputStream;
 
 import com.pholser.junit.quickcheck.From;
 import com.pholser.junit.quickcheck.generator.Size;
-import edu.berkeley.cs.jqf.examples.xml.XMLDocumentUtils;
-import edu.berkeley.cs.jqf.examples.xml.XmlDocumentGenerator;
-import edu.berkeley.cs.jqf.examples.common.Dictionary;
+import edu.berkeley.cs.jqf.generators.structured.xml.XMLDocumentUtils;
+import edu.berkeley.cs.jqf.generators.structured.xml.XmlDocumentGenerator;
+import edu.berkeley.cs.jqf.generators.common.Dictionary;
 import edu.berkeley.cs.jqf.fuzz.Fuzz;
 import edu.berkeley.cs.jqf.fuzz.JQF;
 import org.apache.maven.model.Model;

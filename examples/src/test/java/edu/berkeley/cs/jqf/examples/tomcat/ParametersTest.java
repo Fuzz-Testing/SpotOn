@@ -30,7 +30,7 @@ package edu.berkeley.cs.jqf.examples.tomcat;
 
 import com.pholser.junit.quickcheck.From;
 import com.pholser.junit.quickcheck.generator.Size;
-import edu.berkeley.cs.jqf.examples.common.ArbitraryLengthStringGenerator;
+import edu.berkeley.cs.jqf.generators.string.ArbitraryLengthStringGenerator;
 import edu.berkeley.cs.jqf.fuzz.Fuzz;
 import edu.berkeley.cs.jqf.fuzz.JQF;
 import org.apache.tomcat.util.http.Parameters;

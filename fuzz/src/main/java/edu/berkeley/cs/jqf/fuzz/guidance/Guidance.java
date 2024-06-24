@@ -28,6 +28,7 @@
  */
 package edu.berkeley.cs.jqf.fuzz.guidance;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.function.Consumer;
@@ -111,6 +112,18 @@ public interface Guidance {
      */
     boolean hasInput();
 
+    /**
+     * Used to log fuzzTime and input generation time for performance logging among various guidance.
+     * @param fuzzTime time used for mutation, if a parent exists, or a fresh input if no parent exist
+     * @param genTime time used to generate the arguments, i.e., the program input. This is keeps
+     *                track of how much the generators have run for.
+     */
+    default void appendGenFuzzStats(double fuzzTime, double genTime, double testTime, double handleResultTime){
+
+    };
+    default void appendInputSizeStats(){
+
+    };
     /**
      * Callback for observing actual arguments passed to the test method.
      *
@@ -203,6 +216,10 @@ public interface Guidance {
         };
     }
 
+    default void incrementTimeTookByChildrenForParent(double timeSpent){
+
+    };
+
     /**
      * Runs a test method with generated arguments as input.
      *
@@ -221,5 +238,6 @@ public interface Guidance {
     default void run(TestClass testClass, FrameworkMethod method, Object[] args) throws Throwable {
         new TrialRunner(testClass.getJavaClass(), method, args).run();
     }
+    default void appendGenDetails(){}
 
 }

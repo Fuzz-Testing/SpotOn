@@ -11,6 +11,7 @@
 
     <name>jqf-examples</name>
     <description>JQF: Feedback-directed Quickcheck for Java - Sample generators and benchmark tests</description>
+    <packaging>jar</packaging>
 
     <repositories>
         <repository>
@@ -192,6 +193,30 @@
           <artifactId>chocopy-artifacts</artifactId>
           <version>2.2</version>
         </dependency>
+
+      <!--AWS dependencies-->
+      <dependency>
+        <groupId>com.amazonaws</groupId>
+        <artifactId>aws-lambda-java-tests</artifactId>
+        <version>1.1.1</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.amazonaws</groupId>
+        <artifactId>aws-lambda-java-events</artifactId>
+        <version>3.11.0</version>
+      </dependency>
+      <dependency>
+        <groupId>com.amazonaws</groupId>
+        <artifactId>aws-java-sdk</artifactId>
+        <version>1.12.201</version>
+        <scope>provided</scope>
+      </dependency>
+      <dependency>
+        <groupId>com.amazonaws</groupId>
+        <artifactId>aws-lambda-java-runtime-interface-client</artifactId>
+        <version>2.1.1</version>
+      </dependency>
     </dependencies>
 
     <build>

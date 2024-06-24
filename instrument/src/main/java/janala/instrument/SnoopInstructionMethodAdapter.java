@@ -1,5 +1,7 @@
 package janala.instrument;
 
+import edu.umn.cs.spoton.analysis.influencing.CodeTarget;
+import java.util.HashSet;
 import java.util.LinkedList;
 
 import janala.logger.inst.SPECIAL;
@@ -9,7 +11,6 @@ import org.objectweb.asm.Opcodes;
 
 public class SnoopInstructionMethodAdapter extends MethodVisitor implements Opcodes {
   boolean isInit;
-  boolean isStatic;
   boolean isSuperInitCalled; // Used to keep track of calls to super()/this() in <init>()
   int newStack = 0; // Used to keep-track of NEW instructions in <init>()
   LinkedList<TryCatchBlock> tryCatchBlocks;
@@ -24,8 +25,8 @@ public class SnoopInstructionMethodAdapter extends MethodVisitor implements Opco
   private final GlobalStateForInstrumentation instrumentationState;
 
   public SnoopInstructionMethodAdapter(MethodVisitor mv, String className,
-                                       String methodName, String descriptor, String superName,
-                                       GlobalStateForInstrumentation instrumentationState, boolean isStatic) {
+      String methodName, String descriptor, String superName,
+      GlobalStateForInstrumentation instrumentationState) {
     super(ASM8, mv);
     this.isInit = methodName.equals("<init>");
     this.isSuperInitCalled = false;
@@ -34,8 +35,8 @@ public class SnoopInstructionMethodAdapter extends MethodVisitor implements Opco
     this.descriptor = descriptor;
     this.superName = superName;
     tryCatchBlocks = new LinkedList<>();
+
     this.instrumentationState = instrumentationState;
-    this.isStatic = isStatic;
   }
 
   @Override
@@ -44,14 +45,8 @@ public class SnoopInstructionMethodAdapter extends MethodVisitor implements Opco
     mv.visitLdcInsn(className);
     mv.visitLdcInsn(methodName);
     mv.visitLdcInsn(descriptor);
-    if(isInit || isStatic) {
-      mv.visitMethodInsn(INVOKESTATIC, Config.instance.analysisClass, "METHOD_BEGIN",
-              "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V", false);
-    } else {
-      mv.visitVarInsn(ALOAD, 0);
-      mv.visitMethodInsn(INVOKESTATIC, Config.instance.analysisClass, "METHOD_BEGIN",
-              "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/Object;)V", false);
-    }
+    mv.visitMethodInsn(INVOKESTATIC, Config.instance.analysisClass, "METHOD_BEGIN",
+                       "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V", false);
     if (isInit == false) {
       // For non-constructor methods, the outer try-catch blocks wraps around the entire code
       mv.visitLabel(methodBeginLabel);
@@ -460,7 +455,6 @@ public class SnoopInstructionMethodAdapter extends MethodVisitor implements Opco
         addSpecialInsn(mv, 0); // for non-exceptional path
         break;*/
 
-
       case IALOAD:
       case LALOAD:
       case FALOAD:
@@ -473,7 +467,8 @@ public class SnoopInstructionMethodAdapter extends MethodVisitor implements Opco
           mv.visitInsn(DUP2); // Duplicate array reference and index
           addBipushInsn(mv, instrumentationState.incAndGetId());
           addBipushInsn(mv, lastLineNumber);
-          mv.visitMethodInsn(INVOKESTATIC, Config.instance.analysisClass, "HEAPLOAD2", "(Ljava/lang/Object;III)V", false);
+          mv.visitMethodInsn(INVOKESTATIC, Config.instance.analysisClass, "HEAPLOAD2",
+                             "(Ljava/lang/Object;III)V", false);
         }
         mv.visitInsn(opcode); // Perform the actual operation
         break;
@@ -846,7 +841,7 @@ public class SnoopInstructionMethodAdapter extends MethodVisitor implements Opco
     addBipushInsn(mv, getLabelNum(finalBranchTarget));
     mv.visitMethodInsn(INVOKESTATIC, Config.instance.analysisClass, instMethodName, instMethodDesc, false);
     mv.visitJumpInsn(GOTO, finalBranchTarget); // Go to actual branch target
-
+    instrumentedScp(iid);
     // Now instrument the fall through
     mv.visitLabel(fallthrough);
     addBipushInsn(mv, 0); // Mark branch as not taken
@@ -858,6 +853,21 @@ public class SnoopInstructionMethodAdapter extends MethodVisitor implements Opco
     mv.visitMethodInsn(INVOKESTATIC, Config.instance.analysisClass, instMethodName, instMethodDesc, false);
 
     // continue with fall-through code visiting
+  }
+
+  /**
+   * There to repeat scps of complex conditions into multiple instances in the uncovered map
+   *
+   * @param iid
+   */
+  private void instrumentedScp(int iid) {
+    CodeTarget instrumentedScp = new CodeTarget("L" + this.className,
+                                                this.methodName + this.descriptor,
+                                                lastLineNumber, iid);
+    HashSet<CodeTarget> scpSet = Config.classToInstrumentedScp.getOrDefault(
+        "L" + this.className, new HashSet<>());
+    scpSet.add(instrumentedScp);
+    Config.classToInstrumentedScp.put("L" + this.className, scpSet);
   }
 
   @Override

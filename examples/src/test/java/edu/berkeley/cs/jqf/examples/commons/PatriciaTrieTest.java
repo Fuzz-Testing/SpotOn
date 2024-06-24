@@ -29,7 +29,7 @@
 package edu.berkeley.cs.jqf.examples.commons;
 
 import com.pholser.junit.quickcheck.From;
-import edu.berkeley.cs.jqf.examples.common.AsciiStringGenerator;
+import edu.berkeley.cs.jqf.generators.string.AsciiStringGenerator;
 import java.util.HashMap;
 import java.util.Map;
 

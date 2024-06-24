@@ -28,6 +28,7 @@
  */
 package edu.berkeley.cs.jqf.examples.jgrapht;
 
+import edu.berkeley.cs.jqf.generators.jgrapht.GraphModel;
 import java.util.HashSet;
 import java.util.Set;
 

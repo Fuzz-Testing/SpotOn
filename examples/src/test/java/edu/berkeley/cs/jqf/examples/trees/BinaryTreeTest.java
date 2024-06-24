@@ -1,5 +1,6 @@
 package edu.berkeley.cs.jqf.examples.trees;
 
+import edu.berkeley.cs.jqf.generators.trees.BinaryTree;
 import java.util.Set;
 
 import com.pholser.junit.quickcheck.generator.InRange;

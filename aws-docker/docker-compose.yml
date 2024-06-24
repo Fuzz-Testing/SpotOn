@@ -1,0 +1,18 @@
+version: '3.0'
+services:
+  localstack:
+    container_name: localstack
+    image: localstack/localstack:1.4.0
+    network_mode: bridge
+    environment:
+      - DEBUG=1
+      - DEFAULT_REGION=us-east-1
+      - LAMBDA_EXECUTOR=docker
+      - LAMBDA_REMOTE_DOCKER=true
+      - LAMBDA_REMOVE_CONTAINERS=true
+      - DOCKER_HOST=unix:///var/run/docker.sock
+
+    volumes:
+      - ./localstack/bootstrap:/opt/bootstrap/
+    ports:
+      - '8010:4566'

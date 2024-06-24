@@ -117,7 +117,7 @@ public class GuidedFuzzing {
      * @return the Junit-style test result
      */
     public synchronized static Result run(String testClassName, String testMethod,
-                                        Guidance guidance, PrintStream out) throws ClassNotFoundException, IllegalStateException {
+        Guidance guidance, PrintStream out) throws ClassNotFoundException, IllegalStateException {
 
         // Run with the system class loader
         return run(testClassName, testMethod, ClassLoader.getSystemClassLoader(), guidance, out);
@@ -146,15 +146,15 @@ public class GuidedFuzzing {
      * @return the Junit-style test result
      */
     public synchronized static Result run(String testClassName, String testMethod,
-                                        ClassLoader loader,
-                                        Guidance guidance, PrintStream out) throws ClassNotFoundException, IllegalStateException {
+        ClassLoader loader,
+        Guidance guidance, PrintStream out) throws ClassNotFoundException, IllegalStateException {
         // Set the given classloader as the thread's context class loader,
         // so that applications that use this API can still find test-classes
         Thread.currentThread().setContextClassLoader(loader);
 
         // Load the application class using the provided class loader
         Class<?> testClass =
-                java.lang.Class.forName(testClassName, true, loader);
+            java.lang.Class.forName(testClassName, true, loader);
 
         return run(testClass, testMethod, guidance, out);
     }
@@ -180,7 +180,7 @@ public class GuidedFuzzing {
      * @return the Junit-style test result
      */
     public synchronized static Result run(Class<?> testClass, String testMethod,
-                                          Guidance guidance, PrintStream out) throws IllegalStateException {
+        Guidance guidance, PrintStream out) throws IllegalStateException {
 
         // Ensure that the class uses the right test runner
         RunWith annotation = testClass.getAnnotation(RunWith.class);

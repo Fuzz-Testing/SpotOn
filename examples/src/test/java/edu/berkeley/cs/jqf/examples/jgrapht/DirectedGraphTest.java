@@ -30,6 +30,7 @@ package edu.berkeley.cs.jqf.examples.jgrapht;
 
 import edu.berkeley.cs.jqf.fuzz.Fuzz;
 import edu.berkeley.cs.jqf.fuzz.JQF;
+import edu.berkeley.cs.jqf.generators.jgrapht.GraphModel;
 import org.jgrapht.DirectedGraph;
 import org.jgrapht.GraphTests;
 import org.junit.Assert;

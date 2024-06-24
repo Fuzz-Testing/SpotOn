@@ -28,6 +28,7 @@
  */
 package edu.berkeley.cs.jqf.examples.bcel;
 
+import edu.berkeley.cs.jqf.generators.languages.bcel.JavaClassGenerator;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

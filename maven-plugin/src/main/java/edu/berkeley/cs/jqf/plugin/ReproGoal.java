@@ -217,7 +217,14 @@ public class ReproGoal extends AbstractMojo {
             throw new MojoExecutionException("Cannot find or open file " + input);
         }
 
+        System.setProperty("SpotOn.PROJECT_DIR", target.getAbsolutePath());
+       /* File traceDir = new File(System.getProperty("jqf.traceDir"));
+        if(traceDir!=null && !traceDir.exists())
+            traceDir.mkdirs();*/
         try {
+            System.out.println("printing excludes = " + excludes);
+
+//            guidance = new ReproGuidance(inputFile, traceDir);
             guidance = new ReproGuidance(inputFile, null);
             result = GuidedFuzzing.run(testClassName, testMethod, loader, guidance, out);
         } catch (ClassNotFoundException e) {

@@ -43,6 +43,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -103,7 +104,9 @@ public class ReproGuidance implements Guidance {
         this.inputFiles = inputFiles;
         this.traceDir = traceDir;
         if (Boolean.getBoolean("jqf.repro.logUniqueBranches")) {
+//            allBranchesCovered = new LinkedHashSet<>();
             allBranchesCovered = new HashSet<>();
+//            branchesCoveredInCurrentRun = new LinkedHashSet<>();
             branchesCoveredInCurrentRun = new HashSet<>();
             ignoreInvalidCoverage = Boolean.getBoolean("jqf.repro.ignoreInvalidCoverage");
         }
@@ -150,10 +153,10 @@ public class ReproGuidance implements Guidance {
         try {
             File inputFile = inputFiles[nextFileIdx];
             this.inputStream = new BufferedInputStream(new FileInputStream(inputFile));
-
-            if (allBranchesCovered != null) {
-                branchesCoveredInCurrentRun.clear();
-            }
+            // is in orig JQF currently commented out by SH
+//            if (allBranchesCovered != null) {
+//                branchesCoveredInCurrentRun.clear();
+//            }
 
             return this.inputStream;
         } catch (IOException e) {
@@ -183,7 +186,7 @@ public class ReproGuidance implements Guidance {
         if (dumpArgsDir != null) {
             for (int i = 0; i < args.length; i++) {
                 String dumpFileName = String.format("%s.%d",
-                        getCurrentInputFile().getName(), i);
+                                                    getCurrentInputFile().getName(), i);
                 File dumpFile = new File(dumpArgsDir, dumpFileName);
                 Object arg = args[i];
                 GuidanceException.wrap(() -> writeObjectToFile(dumpFile, arg));
@@ -306,15 +309,29 @@ public class ReproGuidance implements Guidance {
                                 b.getLineNumber(), b.getArm());
                         branchDescCache.put(hash, str);
                     }
+                    // added by SH
+                    /*else {
+                        String newStr = String.format("(%09d) %s#%s():%d [%d]", b.getIid(), b.getContainingClass(), b.getContainingMethodName(),
+                                            b.getLineNumber(), b.getArm());
+                        if(!str.equals(newStr))
+                            System.out.println("hash collision detected on = " + str +" V.S. " + newStr );
+                    }*/
                     branchesCoveredInCurrentRun.add(str);
                 } else if (e instanceof CallEvent) {
                     CallEvent c = (CallEvent) e;
-                    String str = branchDescCache.get(c.getIid());
+                    int callerCalleeHash = (""+ c.getIid() + "" + c.getIid()).hashCode();
+                    String str = branchDescCache.get(callerCalleeHash);
                     if (str == null) {
                         str = String.format("(%09d) %s#%s():%d --> %s", c.getIid(), c.getContainingClass(), c.getContainingMethodName(),
-                                c.getLineNumber(), c.getInvokedMethodName());
-                        branchDescCache.put(c.getIid(), str);
+                                            c.getLineNumber(), c.getInvokedMethodName());
+                        branchDescCache.put(callerCalleeHash, str);
                     }
+                    // added by SH
+                    /*else {
+                        String newStr= String.format("(%09d) %s#%s():%d --> %s", c.getIid(), c.getContainingClass(), c.getContainingMethodName(),
+                                                     c.getLineNumber(), c.getInvokedMethodName());
+                        if(!str.equals(newStr))
+                            System.out.println("hash collision detected on = " + str +" V.S. " + newStr );                 }*/
                     branchesCoveredInCurrentRun.add(str);
                 }
             };
